@@ -4,7 +4,7 @@ const da = require('./steamApi');
 
 module.exports = async currentLiveScore => {
     try {
-        const newLiveScore = await da.getTopLiveGame({partner: 3});
+        const newLiveScore = await da.getTopLiveGame({partner: 2});
         if (newLiveScore.game_list) {
             newLiveScore.game_list.forEach(async match => {
                 delete match.sort_score;

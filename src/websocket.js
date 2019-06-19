@@ -1,7 +1,5 @@
 const write = require('./utilities/consoleWrap')(require('config').get('logLevel'));
-const da = require('./services/steamApi');
-const liveScoreWorker = require('./services/liveScoreWorker');
-const daOptions = {partner: 3};
+const liveScoreWorker = require('./services/liveScore/liveScoreWorker');
 
 
 let watcherSocket = null;
@@ -98,6 +96,7 @@ const betsOddsListener = socket => {
                 if (match.LIVE_DATA_IDS) {
                     if (match.LIVE_DATA_IDS.includes(id.toString())) {
                         if (adminSocket) {
+                            console.log(data)
                             adminSocket.emit(`${match.DATA_ID}`, data)
                         }
                     }

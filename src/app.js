@@ -7,14 +7,17 @@ const bodyParser = require('body-parser');
 const server = http.createServer(app);
 const io = require('socket.io')(server);
 const websocket = require('./websocket')(io);
+const db = require('./services/db/index')();
+
+
 const port = process.env.PORT || '3500';
 
 
 app.set('port', port);
 app.use(bodyParser.json());
 
-let dataABC = 0;
-let dataSTORM = 3;
+
+
 
 app.get('/user', function (req, res) {
     write.log('Подключен пользователь');

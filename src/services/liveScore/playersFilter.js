@@ -734,11 +734,9 @@ module.exports = async (players, team_id_radiant, team_id_dire) => {
 
 
 
-    console.log(players)
 
 
-    // console.log(team_radiant.result.teams[0])
-
+    // console.log(team_radiant.result.teams[0]
 
     // console.log(team_radiant.result.teams);
     // console.log(team_dire.result.teams)
