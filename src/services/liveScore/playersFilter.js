@@ -1,4 +1,6 @@
-const da = require('./steamApi')
+const da = require('./steamApi');
+const axios = require('axios').default;
+const to = require('await-to-js').default;
 const heroes = [
     {
         name: 'antimage',
@@ -704,47 +706,41 @@ const heroes = [
 ];
 
 
-module.exports = async (players, team_id_radiant, team_id_dire) => {
-    const team_radiant = await da.getTeamInfoByTeamID({
-        start_at_team_id: team_id_radiant,
-        teams_requested: 1,
-    });
+module.exports = async match_id => {
 
-    const team_dire = await da.getTeamInfoByTeamID({
-        start_at_team_id: team_id_dire,
-        teams_requested: 1,
-    });
+    let radiant_team;
+    let dire_team;
+    let err, result;
+    [err, result] = await to(axios.get(`https://api.steampowered.com/IDOTA2Match_570/GetLiveLeagueGames/v1/?key=4DA49E795D91371C6C5226728380F221&match_id=${match_id}`));
+    let data = result.data;
+    if (err) throw err;
 
-    players.forEach(player => {
-        team_radiant.result.teams.forEach(radiant => {
-            for (let item in radiant) {
-                if (player.account_id === radiant[item]) {
-                    player.team = 'radiant'
+    if (data.result.games[0]) {
+        radiant_team = data.result.games[0].scoreboard.radiant.picks;
+        dire_team = data.result.games[0].scoreboard.dire.picks;
+
+        radiant_team.forEach(radiant => {
+            heroes.forEach(hero => {
+                if (radiant.hero_id === hero.id) {
+                    radiant.imgSrc = hero.imgSrc
                 }
-            }
-        })
-        team_dire.result.teams.forEach(dire => {
-            for (let item in dire) {
-                if (player.account_id === dire[item]) {
-                    player.team = 'dire'
+            })
+        });
+
+        dire_team.forEach(dire => {
+            heroes.forEach(hero => {
+                if (dire.hero_id === hero.id) {
+                    dire.imgSrc = hero.imgSrc
                 }
-            }
+            })
         })
-    });
+    }
 
-
-
-
-
-    // console.log(team_radiant.result.teams[0]
-
-    // console.log(team_radiant.result.teams);
-    // console.log(team_dire.result.teams)
-
-
+    return {
+        radiant_team,
+        dire_team
+    }
 };
-
-
 
 
 

@@ -1,5 +1,8 @@
 const config = require('config');
+const playersFilter = require('./src/services/liveScore/playersFilter');
+const to = require('await-to-js').default;
 const express = require('express');
+const port = process.env.PORT || '3500';
 const write = require('./src/utilities/consoleWrap')(config.get('logLevel'));// Если 1, то пушутся только error и info, если 2 - то все, если 0 - то ничего.
 const app = express();
 const path = require('path');
@@ -7,26 +10,56 @@ const http = require('http');
 const bodyParser = require('body-parser');
 const server = http.createServer(app);
 const io = require('socket.io')(server);
-const websocket = require('./src/websocket')(io);
-const db = require('./src/services/db')();
+const db = require('./src/db')();
 
 
-const port = process.env.PORT || '3500';
-app.use(express.static(path.join(__dirname, './dist')));
-
-
+app.use(express.static(path.join(__dirname, '../nuxt-client/dist')));
 app.set('port', port);
+app.use(bodyParser.urlencoded({ extended: false }))
+// parse application/json
 app.use(bodyParser.json());
-
-
-
-
-app.get('/user', function (req, res) {
-    write.log('Подключен пользователь');
-    res.send('hello world1')
+app.use('/api/heroes', async (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    const data = await playersFilter(req.body.match_id);
+    res.send({
+        radiant_team: data.radiant_team,
+        dire_team: data.dire_team
+    })
 });
-
 
 server.listen(port, () => {
     write.info(`App running on port: ${port}`)
 });
+
+
+(() => {
+    const SocketListener = require('./src/services/SocketListener');
+
+
+    const socketListener = new SocketListener();
+    socketListener.liveScoreListener();
+
+    io.on('connection',socket => {
+        socketListener.auth(socket);
+        socketListener.disconnect(socket);
+        socketListener.matchListFromWatcher(socket);
+        socketListener.betsOdds(socket);
+        socketListener.test(socket);
+        socketListener.winnerListener(socket)
+    });
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+

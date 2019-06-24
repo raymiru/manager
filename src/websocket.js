@@ -1,6 +1,6 @@
 const write = require('./utilities/consoleWrap')(require('config').get('logLevel'));
 const liveScoreWorker = require('./services/liveScore/liveScoreWorker');
-
+const da = require('./services/liveScore/steamApi')
 
 let watcherSocket = null;
 let adminSocket = null;
@@ -106,7 +106,7 @@ const betsOddsListener = socket => {
             console.log(e)
         }
     });
-}
+};
 
 /*
 Проверка подключенных пользователей
@@ -141,8 +141,6 @@ const winnerListener = socket => {
 /*
 Steam Api Live Score Listener
  */
-
-
 const liveScoreListener = () => {
     liveScoreWorker().then(result => {
         if (adminSocket) adminSocket.emit('steamApi', result)
@@ -174,8 +172,3 @@ module.exports = (io) => {
         winnerListener(socket)
     });
 };
-
-
-
-
-//12191523
