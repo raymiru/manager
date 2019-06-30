@@ -34,8 +34,9 @@ module.exports = class SocketListener {
             else if (socket.type === 'admin') {
                 this.connectedSockets.admin = socket;
                 this.connectedSockets.admin.emit('import_matches', this.match_list);
+                this.connectedSockets.admin.emit('players_sync', this.players);
                 liveScoreWorker().then(result => {
-                    this.connectedSockets.admin.emit('steamApi', result.game_list)
+                    this.connectedSockets.admin.emit('live_score_api', result.game_list)
                 })
 
             } else if (socket.type === 'player') {
@@ -43,10 +44,12 @@ module.exports = class SocketListener {
                 if (this.connectedSockets.admin) {
                     this.players.push({
                         type: data.type,
-                        steam_username: data.username,
+                        username: data.username,
                         info: data.info,
-                        match: data.match
+                        match: data.match,
+                        bets: []
                     });
+                    socket.emit('import_matches', this.match_list);
                     this.connectedSockets.admin.emit('players_sync', this.players);
                 }
             }
@@ -72,10 +75,11 @@ module.exports = class SocketListener {
                     }
                 })
                 this.players.forEach((element, index, array) => {
-                    if (element.steam_username === socket.username) {
+                    if (element.username === socket.username) {
                         array.splice(index, 1);
                     }
-                })
+                });
+                this.connectedSockets.admin.emit('players_sync', this.players);
             }
         });
     }
@@ -121,13 +125,12 @@ module.exports = class SocketListener {
     }
 
     liveScoreListener() {
-        console.log('LISTEN')
         liveScoreWorker()
             .then(result => {
                 if (JSON.stringify(this.currentLiveScore) !== JSON.stringify(result)) {
                     console.log('LS');
                     this.currentLiveScore = result
-                    if (this.connectedSockets.admin) this.connectedSockets.admin.emit('steamApi', this.currentLiveScore.game_list);
+                    if (this.connectedSockets.admin) this.connectedSockets.admin.emit('live_score_api', this.currentLiveScore.game_list);
                 }
             }).then(() => {
                 setTimeout(() => {
@@ -153,6 +156,11 @@ module.exports = class SocketListener {
     };
 
     test(socket) {
+
+        socket.on('hello', data => {
+            console.log('hello')
+        } )
+
         socket.on('all', () => {
             this.connectedSockets.all.forEach(elem => {
                 console.log(elem.type);

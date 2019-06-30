@@ -3,18 +3,17 @@ const buildingCost = {
         top: 1,
         mid: 8,
         bot: 64,
-        t4: 800
+        t4: 768
     },
     team2: {
         top: 65536,
         mid: 524288,
         bot: 4194304,
-        t4: 0
+        t4: 512
     }
 };
 
-//12191524
-//12191524
+//4785874
 
 const startValue = 4784201;
 
@@ -39,6 +38,7 @@ const buildingStateParser = (value) => {
     }
 
     let changedValue = value - startValue;
+    let exportChangeValue = changedValue
 
 
     let buildingState = {
@@ -57,7 +57,20 @@ const buildingStateParser = (value) => {
         }
     }
 
-    while (changedValue !== 0 ) {
+    while (changedValue !== 0) {
+
+
+
+
+        //team2 t4
+        // else if (changedValue === buildingState.team2.t4) {
+        //     changedValue -= buildingCost.team2.t4
+        //     buildingState.team2.t4.push(0);
+        // } else if (changedValue === (buildingCost.team2.t4 * 2)) {
+        //     changedValue -= (buildingCost.team2.t4 * 2);
+        //     buildingState.team2.t4.push(0);
+        //     buildingState.team2.t4.push(0)
+        // }
 
         // team2 bot
         if (changedValue >= buildingCost.team2.bot) {
@@ -82,10 +95,17 @@ const buildingStateParser = (value) => {
 
         }
 
+
         //team1 t4
         else if (changedValue >= buildingCost.team1.t4) {
             changedValue -= buildingCost.team1.t4;
             buildingState.team1.t4.push(0)
+        }
+
+        //team2 t4
+        else if (changedValue >= buildingCost.team2.t4) {
+            changedValue -= buildingCost.team2.t4;
+            buildingState.team2.t4.push(0)
         }
 
         //team1 bot
@@ -109,7 +129,7 @@ const buildingStateParser = (value) => {
             buildingState.team1.top.push(0)
 
         }
-        else changedValue = 0
+
     }
 
     for (let side in buildingState) {
@@ -131,6 +151,7 @@ const buildingStateParser = (value) => {
     }
 
     return buildingState
+
 };
 
 module.exports = buildingStateParser;

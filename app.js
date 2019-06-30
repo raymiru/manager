@@ -1,4 +1,5 @@
 const config = require('config');
+const useragent = require('useragent');
 const playersFilter = require('./src/services/liveScore/playersFilter');
 const to = require('await-to-js').default;
 const express = require('express');
@@ -19,13 +20,20 @@ app.use(bodyParser.urlencoded({ extended: false }))
 // parse application/json
 app.use(bodyParser.json());
 app.use('/api/heroes', async (req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    const data = await playersFilter(req.body.match_id);
-    res.send({
-        radiant_team: data.radiant_team,
-        dire_team: data.dire_team
-    })
+    try {
+        res.header('Access-Control-Allow-Origin', '*');
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+        const data = await playersFilter(req.body.match_id);
+        res.send({
+            radiant_team: data.radiant_team,
+            dire_team: data.dire_team
+        })
+    } catch (e) {
+        res.send({
+            radiant_team: [],
+            dire_team: []
+        })
+    }
 });
 
 server.listen(port, () => {

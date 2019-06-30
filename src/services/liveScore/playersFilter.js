@@ -707,15 +707,16 @@ const heroes = [
 
 
 module.exports = async match_id => {
+try {
 
     let radiant_team;
     let dire_team;
     let err, result;
     [err, result] = await to(axios.get(`https://api.steampowered.com/IDOTA2Match_570/GetLiveLeagueGames/v1/?key=4DA49E795D91371C6C5226728380F221&match_id=${match_id}`));
     let data = result.data;
-    if (err) throw err;
+    if (err) console.error(err);
 
-    if (data.result.games[0]) {
+    if (data.result.games[0].scoreboard.radiant.picks && data.result.games[0].scoreboard.dire.picks) {
         radiant_team = data.result.games[0].scoreboard.radiant.picks;
         dire_team = data.result.games[0].scoreboard.dire.picks;
 
@@ -734,12 +735,18 @@ module.exports = async match_id => {
                 }
             })
         })
+    } else {
+        radiant_team = [];
+        dire_team = [];
     }
 
     return {
         radiant_team,
         dire_team
     }
+} catch (e) {
+    console.error(e)
+}
 };
 
 
