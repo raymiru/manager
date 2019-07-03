@@ -11,7 +11,7 @@ const http = require('http');
 const bodyParser = require('body-parser');
 const server = http.createServer(app);
 const io = require('socket.io')(server);
-const db = require('./src/db')();
+// const db = require('./src/db')();
 
 
 app.use(express.static(path.join(__dirname, '../nuxt-client/dist')));
@@ -43,18 +43,31 @@ server.listen(port, () => {
 
 (() => {
     const SocketListener = require('./src/services/SocketListener');
-
-
     const socketListener = new SocketListener();
-    socketListener.liveScoreListener();
 
-    io.on('connection',socket => {
+
+    (() => {
+        write.log('LIVE SCORE LISTENER');
+        socketListener.liveScoreListener();
+    })();
+    io.on('connection',(socket) => {
+        console.log(socket.handshake.query.im)
         socketListener.auth(socket);
         socketListener.disconnect(socket);
-        socketListener.matchListFromWatcher(socket);
-        socketListener.betsOdds(socket);
-        socketListener.test(socket);
-        socketListener.winnerListener(socket)
+
+        if (socket.handshake.query.im === 'player') {
+            socketListener.playersSync(socket);
+        }
+        else if (socket.handshake.query.im === 'watcher') {
+            socketListener.matchListFromWatcher(socket);
+        }
+        else if (socket.handshake.query.im === 'oddsWatcher') {
+            socketListener.betsOdds(socket)
+        }
+        else if (socket.handshake.query.im === 'admin') {
+            socketListener.winnerListener(socket);
+            socketListener.test(socket);
+        }
     });
 })();
 

@@ -55,22 +55,10 @@ const buildingStateParser = (value) => {
             "bot": [],
             "t4": []
         }
-    }
+    };
 
     while (changedValue !== 0) {
 
-
-
-
-        //team2 t4
-        // else if (changedValue === buildingState.team2.t4) {
-        //     changedValue -= buildingCost.team2.t4
-        //     buildingState.team2.t4.push(0);
-        // } else if (changedValue === (buildingCost.team2.t4 * 2)) {
-        //     changedValue -= (buildingCost.team2.t4 * 2);
-        //     buildingState.team2.t4.push(0);
-        //     buildingState.team2.t4.push(0)
-        // }
 
         // team2 bot
         if (changedValue >= buildingCost.team2.bot) {

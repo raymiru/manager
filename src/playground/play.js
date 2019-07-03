@@ -1,3 +1,3 @@
-const bsp = require('../services/liveScore/buildingStateParser');
+let a = '\\u003e:nth-child(1)'
 
-console.log(bsp(14354147))
+console.log(a+a)

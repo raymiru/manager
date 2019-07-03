@@ -6,7 +6,7 @@ module.exports = async () => {
 
     let err, newLiveScore;
 
-    [err, newLiveScore] = await to(da.getTopLiveGame({partner: 2}));
+    [err, newLiveScore] = await to(da.getTopLiveGame({partner: 3}));
     if (err) console.log(err);
 
     if (newLiveScore.game_list) {
