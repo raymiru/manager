@@ -1,3 +1,9 @@
-let a = '\\u003e:nth-child(1)'
+let i = 10;
+const intervalID = setInterval(() => {
+    i--
+    console.log(i)
+    if (i === 0) {
 
-console.log(a+a)
+        clearInterval(intervalID)
+    }
+}, 1000)

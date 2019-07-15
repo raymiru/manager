@@ -10,47 +10,37 @@ module.exports = class SocketListener {
         this.connectedSockets = {
             all: [],
             admin: null,
-            watcher: null,
-            oddsWatcher: null,
+            watcher: {
+                DOTA2: null,
+                CSGO: null
+            },
+            oddsWatcher: {
+                DOTA2: null,
+                CSGO: null
+            },
             players: []
         };
-        this.match_list = [];
+        this.match_list = {
+            DOTA2: {
+                now: null,
+                next: null
+            },
+            CSGO: {
+                now: null,
+                next: null
+            }
+        };
+
+        this.live_status = {
+            DOTA2: [],
+            CSGO: []
+        };
         this.players = [];
         this.currentLiveScore = {}
     }
 
     auth(socket) {
-        const socketWorkWith = data => {
-            socket.type = data.type;
-            socket.username = data.username;
-            this.connectedSockets.all.push(socket);
-            socket.emit('auth', {auth: 'success'});
-
-            if (socket.type === 'watcher') this.connectedSockets.watcher = socket;
-            else if (socket.type === 'oddsWatcher') this.connectedSockets.oddsWatcher = socket;
-            else if (socket.type === 'admin') {
-                this.connectedSockets.admin = socket;
-                this.connectedSockets.admin.emit('import_matches', this.match_list);
-                this.connectedSockets.admin.emit('players_sync', this.players);
-                liveScoreWorker().then(result => {
-                    this.connectedSockets.admin.emit('live_score_api', result.game_list)
-                })
-
-            } else if (socket.type === 'player') {
-                this.connectedSockets.players.push(socket);
-                if (this.connectedSockets.admin) {
-                    this.players.push({
-                        type: data.type,
-                        username: data.username,
-                        info: data.info,
-                        match: data.match,
-                        bets: []
-                    });
-                    socket.emit('import_matches', this.match_list);
-                    if (this.connectedSockets.admin) this.connectedSockets.admin.emit('players_sync', this.players)
-                }
-            }
-        };
+        write.log('AUTH LISTENER');
 
         const socketSave = data => {
             socket.emit('auth', {auth: 'success'});
@@ -59,19 +49,32 @@ module.exports = class SocketListener {
             if (socket.handshake.query.im === 'player') {
                 this.connectedSockets.players.push(socket);
                 this.players.push(data);
-                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('players_sync', this.players);
+                if (this.connectedSockets.admin) {
+                    this.connectedSockets.admin.emit('players_sync', this.players)
+                    this.connectedSockets.admin.emit('notification', {
+                        event: 'player_connect',
+                        username: data.username
+                    })
+                }
+                ;
             } else if (socket.handshake.query.im === 'admin') {
                 this.connectedSockets.admin = socket
-                this.connectedSockets.admin.emit('import_matches', this.match_list);
+                this.connectedSockets.admin.emit('import_matches_dota2_now', this.match_list.DOTA2.now);
+                this.connectedSockets.admin.emit('import_matches_dota2_next', this.match_list.DOTA2.next);
+                this.connectedSockets.admin.emit('import_matches_csgo_now', this.match_list.CSGO.now);
+                this.connectedSockets.admin.emit('import_matches_csgo_next', this.match_list.CSGO.next);
                 this.connectedSockets.admin.emit('players_sync', this.players);
-                liveScoreWorker().then(result => {
-                    this.connectedSockets.admin.emit('live_score_api', result.game_list)
-                })
-
+                this.connectedSockets.admin.emit('live_score_api', this.currentLiveScore.game_list);
                 // отправить стартовыне данные
 
             } else if (socket.handshake.query.im === 'watcher') {
-                this.connectedSockets.watcher = socket
+                if (socket.handshake.query.game === 'dota2') {
+                    console.log('WATCHER DOTA2 SAVE')
+                    this.connectedSockets.watcher.DOTA2 = socket
+                } else if (socket.handshake.query.game === 'csgo') {
+                    console.log('WATCHER CSGO SAVE')
+                    this.connectedSockets.watcher.CSGO = socket
+                }
             } else if (socket.handshake.query.im === 'oddsWatcher') {
                 this.connectedSockets.oddsWatcher = socket
             } else {
@@ -100,96 +103,171 @@ module.exports = class SocketListener {
     }
 
     playersSync(socket) {
-        write.log('PLAYER SYNC LISTENER');
-        socket.on('players_sync', data => {
-            console.log('PLAYERS SYNC')
-            this.players.forEach((elem, index, array) => {
-                if (elem.username === socket.info.username) {
-                    write.info('CHANGE')
-                    array[index] = data
-                }
-            })
-            if (this.connectedSockets.admin) this.connectedSockets.admin.emit('players_sync', this.players);
+        try {
+            write.log('PLAYER SYNC LISTENER');
+            socket.on('players_sync', data => {
+                console.log('PLAYERS SYNC')
+                this.players.forEach((elem, index, array) => {
+                    if (elem.username === socket.info.username) {
+                        write.info('CHANGE')
+                        array[index] = data
+                    }
+                })
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('players_sync', this.players);
 
-        })
+            })
+        } catch (e) {
+            console.error(e)
+        }
     };
 
     disconnect(socket) {
         socket.on('disconnect', () => {
-           try {
-               write.warn(`Disconnect: ${socket.info.username}`);
-               this.connectedSockets.all.forEach((element, index, array) => {
-                   if (element.info.username === socket.info.username) {
-                       array.splice(index, 1);
-                       if (element.handshake.query.im === 'admin') {
-                           this.connectedSockets.admin = null;
-                       }
-                       else if (element.handshake.query.im === 'watcher') {
-                           this.connectedSockets.watcher = null;
-                       }
-                       else if (element.handshake.query.im === 'oddsWatcher') {
-                           this.connectedSockets.oddsWatcher = null
-                       }
-                       else if (socket.handshake.query.im === 'player') {
-                           this.connectedSockets.players.forEach((element, index, array) => {
-                               if (element.info.username === socket.info.username) {
-                                   array.splice(index, 1);
-                               }
-                           })
-                           this.players.forEach((element, index, array) => {
-                               if (element.username === socket.info.username) {
-                                   array.splice(index, 1);
-                               }
-                           })
-                           this.connectedSockets.admin.emit('players_sync', this.players);
-                       }
+            try {
+                write.warn(`Disconnect: ${socket.info.username}`);
+                this.connectedSockets.all.forEach((element, index, array) => {
+                    if (element.info.username === socket.info.username) {
+                        array.splice(index, 1);
+                        if (element.handshake.query.im === 'admin') {
+                            this.connectedSockets.admin = null;
+                        } else if (element.handshake.query.im === 'watcher') {
+                            if (element.handshake.query.game === 'dota2') {
+                                this.connectedSockets.watcher.DOTA2 = null;
+                            } else if (element.handshake.query.game === 'csgo') {
+                                this.connectedSockets.watcher.CSGO = null
+                            }
 
-                   }
-               });
-           } catch (e) {
-               write.error(e)
-           }
+                        } else if (element.handshake.query.im === 'oddsWatcher') {
+                            if (element.handshake.query.game === 'dota2') {
+                                this.connectedSockets.oddsWatcher.DOTA2 = null;
+                            } else if (element.handshake.query.game === 'csgo') {
+                                this.connectedSockets.oddsWatcher.CSGO = null
+                            }
+
+                        } else if (socket.handshake.query.im === 'player') {
+                            this.connectedSockets.players.forEach((element, index, array) => {
+                                if (element.info.username === socket.info.username) {
+                                    this.connectedSockets.admin.emit('notification', {
+                                        username: element.info.username,
+                                        event: 'player_disconnect'
+                                    });
+                                    array.splice(index, 1);
+                                }
+                            });
+                            this.players.forEach((element, index, array) => {
+                                if (element.username === socket.info.username) {
+                                    array.splice(index, 1);
+                                }
+                            })
+                            this.connectedSockets.admin.emit('players_sync', this.players);
+                        }
+
+                    }
+                });
+            } catch (e) {
+                write.error(e)
+            }
+        })
+    }
+
+    chatListener(socket) {
+        write.log('CHAT LISTENER')
+        socket.on('chat', data => {
+            if (socket.handshake.query.game === 'dota2') {
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_chat_dota2', data)
+            } else if (socket.handshake.query.game === 'csgo') {
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_chat_csgo', data)
+            }
+        })
+    }
+
+
+    dota2liveStatusCompare(current, last) {
+        console.log('COMPARE')
+        current.forEach(currentElem => {
+            last.forEach(lastElem => {
+
+                if (lastElem.DATA_ID === currentElem.DATA_ID) {
+                    console.log('COMPARE NOW')
+                    if (lastElem.STATUS === null && currentElem.STATUS === 'live') {
+                        console.log('YES')
+                        this.connectedSockets.players.forEach(elem => {
+                            elem.emit('dota2_live_status_update')
+                        })
+
+                    } else {
+                        console.log('NOT')
+                    }
+                }
+            })
         })
     }
 
     matchListFromWatcher(socket) {
-        write.log('MATCH LIST LISTENER');
-        socket.on('match_list_from_watcher', data => {
-            //init
-            if (!this.match_list) this.match_list = data;
-            // проверка на разницу количества матчей
-            else if (this.match_list.length !== data.length) {
-                this.match_list = data;
-                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches', this.match_list)
+        write.log('MATCH LIST LISTENER')
+        socket.on('match_list_now', data => {
+
+            if (socket.handshake.query.game === 'dota2') {
+                console.log('dota2 match change');
+                this.dota2liveStatusCompare(data, this.live_status.DOTA2);
+                this.live_status.DOTA2 = data
+                this.match_list.DOTA2.now = data;
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches_dota2_now', this.match_list.DOTA2.now)
+            } else if (socket.handshake.query.game === 'csgo') {
+                this.match_list.CSGO.now = data;
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches_csgo_now', this.match_list.CSGO.now)
             }
-            // проверка на совпадение статуса
-            this.match_list.forEach((elem, index, array) => {
-                if (array[index].STATUS !== data[index].STATUS) {
-                    this.match_list = data
-                    if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches', this.match_list)
-                }
-            })
-        });
+        })
+        socket.on('match_list_next', data => {
+
+            if (socket.handshake.query.game === 'dota2') {
+                this.match_list.DOTA2.next = data;
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches_dota2_next', this.match_list.DOTA2.next)
+            } else if (socket.handshake.query.game === 'csgo') {
+                this.match_list.CSGO.next = data;
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches_csgo_next', this.match_list.CSGO.next)
+            }
+        })
     }
 
+
     betsOdds(socket) {
-        write.log('BETS ODDS LISTENER');
+        write.log('DOTA2 BETS ODDS LISTENER');
         socket.on('updatematch_dota', data => {
-            let id = JSON.parse(data).id;
-            try {
-                if (this.match_list) {
-                    this.match_list.forEach(match => {
-                        if (match.LIVE_DATA_IDS) {
-                            if (match.LIVE_DATA_IDS.includes(id.toString())) {
-                                if (this.connectedSockets.admin) {
-                                    this.connectedSockets.admin.emit(`${match.DATA_ID}`, data)
+            if (socket.handshake.query.game === 'dota2') {
+                let id = JSON.parse(data).id;
+                try {
+                    if (this.match_list.DOTA2.now) {
+                        this.match_list.DOTA2.now.forEach(match => {
+                            if (match.LIVE_DATA_IDS) {
+                                if (match.LIVE_DATA_IDS.includes(id.toString())) {
+                                    if (this.connectedSockets.admin) {
+                                        this.connectedSockets.admin.emit(`${match.DATA_ID}`, data)
+                                    }
                                 }
                             }
-                        }
-                    })
+                        })
+                    }
+                } catch (e) {
+                    console.log(e)
                 }
-            } catch (e) {
-                console.log(e)
+            } else if (socket.handshake.query.game === 'csgo') {
+                let id = JSON.parse(data).id;
+                try {
+                    if (this.match_list.CSGO.now) {
+                        this.match_list.CSGO.now.forEach(match => {
+                            if (match.LIVE_DATA_IDS) {
+                                if (match.LIVE_DATA_IDS.includes(id.toString())) {
+                                    if (this.connectedSockets.admin) {
+                                        this.connectedSockets.admin.emit(`${match.DATA_ID}`, data)
+                                    }
+                                }
+                            }
+                        })
+                    }
+                } catch (e) {
+                    console.log(e)
+                }
             }
         });
     }
@@ -199,6 +277,7 @@ module.exports = class SocketListener {
             .then(result => {
                 if (JSON.stringify(this.currentLiveScore) !== JSON.stringify(result)) {
                     this.currentLiveScore = result
+                    console.log('live_score_api_to_admin')
                     if (this.connectedSockets.admin) this.connectedSockets.admin.emit('live_score_api', this.currentLiveScore.game_list);
                 }
             }).then(() => {
@@ -225,7 +304,137 @@ module.exports = class SocketListener {
         });
     };
 
-    test(socket) {
+    adminListener(socket) {
+        socket.on('players_sync_request', () => {
+            this.connectedSockets.players.forEach(player => {
+                player.emit('players_sync_request')
+            })
+        })
+
+
+        socket.on('update_watcher', game => {
+            console.log(game)
+            try {
+                if (game === 'dota2') {
+                    this.connectedSockets.watcher.DOTA2.emit('update_watcher')
+                } else if (game === 'csgo') {
+                    this.connectedSockets.watcher.CSGO.emit('update_watcher')
+                }
+            } catch (e) {
+                console.error(e)
+            }
+        })
+
+
+        socket.on('multi_bet_dota2', data => {
+            console.log(data)
+            data.betArr.forEach(player => {
+                this.connectedSockets.players.forEach(sock => {
+                    if (player.player === sock.info.username) {
+                        sock.emit('single_bet', {
+                            dataId: data.dataId,
+                            statusBuilder: data.statusBuilder,
+                            winSide: data.winSide,
+                            betSize: player.bet
+                        })
+                    }
+                })
+            })
+
+        })
+
+
+        socket.on('data_ids_change', () => {
+            this.connectedSockets.players.forEach(elem => {
+                elem.emit('data_ids_change')
+            })
+        })
+
+
+        socket.on('chat_control', data => {
+            console.log('CHAT CONTROL')
+            console.log(data)
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('chat_control', data)
+                }
+            })
+        });
+
+
+        socket.on('chat_msg', data => {
+            console.log('CHAT MSG');
+            console.log(data)
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('chat_msg', data)
+                }
+            })
+        });
+
+
+        socket.on('single_bet', data => {
+            console.log('SINGLE BET');
+            console.log(data);
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('single_bet', data)
+                }
+            })
+        })
+
+        socket.on('place_bet_next', data => {
+            console.log('PLACE BET NEXT')
+            console.log(data);
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('place_bet_next', data)
+                }
+            })
+
+        });
+
+        socket.on('place_rebet_next', data => {
+            console.log('PLACE REBET NEXT')
+            console.log(data);
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('place_rebet_next', data)
+                }
+            })
+
+        });
+
+        socket.on('cancel_bet_next', data => {
+            console.log('CANCEL BET NEXT');
+            console.log(data)
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('cancel_bet_next', data)
+                }
+            })
+        });
+
+
+        socket.on('place_bet', data => {
+            console.log('PLACE BET')
+            console.log(data)
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('place_bet', data)
+                }
+            })
+        });
+
+        socket.on('place_bet_fast', data => {
+            console.log('PLACE BET FAST')
+            console.log(data);
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('place_bet_fast', data)
+                }
+            })
+        });
 
         socket.on('set_status', data => {
             console.log('SET STATUS')
@@ -236,21 +445,32 @@ module.exports = class SocketListener {
                     })
                 }
             })
-        })
+        });
+
+        socket.on('set_game', data => {
+            console.log('SET GAME')
+            this.connectedSockets.players.forEach(elem => {
+                if (elem.info.username === data.username) {
+                    elem.emit('set_game', {
+                        game: data.game
+                    })
+                }
+            })
+        });
 
         socket.on('test_move', () => {
             console.log('TEST MOVE')
             this.connectedSockets.players.forEach(elem => {
                 elem.emit('test_move')
             })
-        })
+        });
 
         socket.on('test_bet', () => {
             console.log('TEST BET')
             this.connectedSockets.players.forEach(elem => {
                 elem.emit('test_bet');
             })
-        })
+        });
 
         socket.on('enter-bets-site', () => {
             console.log('enter-bets-site')
@@ -279,8 +499,7 @@ module.exports = class SocketListener {
 
         });
         socket.on('watcher', () => {
-            console.log(this.connectedSockets.watcher.type)
-            console.log(this.connectedSockets.watcher.username)
+            console.log(this.connectedSockets.watcher.CSGO.info)
         });
         socket.on('players-array', () => {
             console.log(this.players)

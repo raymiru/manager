@@ -60,13 +60,14 @@ server.listen(port, () => {
         }
         else if (socket.handshake.query.im === 'watcher') {
             socketListener.matchListFromWatcher(socket);
+            socketListener.chatListener(socket)
         }
         else if (socket.handshake.query.im === 'oddsWatcher') {
             socketListener.betsOdds(socket)
         }
         else if (socket.handshake.query.im === 'admin') {
             socketListener.winnerListener(socket);
-            socketListener.test(socket);
+            socketListener.adminListener(socket);
         }
     });
 })();
