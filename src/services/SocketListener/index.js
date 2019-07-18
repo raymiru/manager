@@ -106,15 +106,20 @@ module.exports = class SocketListener {
         try {
             write.log('PLAYER SYNC LISTENER');
             socket.on('players_sync', data => {
-                console.log('PLAYERS SYNC')
+                console.log('PLAYERS SYNC');
                 this.players.forEach((elem, index, array) => {
                     if (elem.username === socket.info.username) {
-                        write.info('CHANGE')
+                        write.info('CHANGE');
                         array[index] = data
                     }
-                })
+                });
                 if (this.connectedSockets.admin) this.connectedSockets.admin.emit('players_sync', this.players);
 
+            })
+
+            socket.on('bet_error', data => {
+                console.log(data);
+                if (this.connectedSockets.admin) this.connectedSockets.admin.emit('bet_error', data)
             })
         } catch (e) {
             console.error(e)
@@ -305,6 +310,13 @@ module.exports = class SocketListener {
     };
 
     adminListener(socket) {
+        socket.on('all_players_to_ready', () => {
+            this.connectedSockets.players.forEach(player => {
+                player.emit('all_players_to_ready')
+            })
+        })
+
+
         socket.on('players_sync_request', () => {
             this.connectedSockets.players.forEach(player => {
                 player.emit('players_sync_request')
