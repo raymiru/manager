@@ -3,17 +3,17 @@ const buildingCost = {
         top: 1,
         mid: 8,
         bot: 64,
-        t4: 768
+        t4: 512
     },
     team2: {
         top: 65536,
         mid: 524288,
         bot: 4194304,
-        t4: 512
+        t4: 768
     }
 };
 
-//4785874
+//29296571
 
 const startValue = 4784201;
 

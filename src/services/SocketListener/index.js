@@ -187,7 +187,7 @@ module.exports = class SocketListener {
     }
 
 
-    dota2liveStatusCompare(current, last) {
+    liveStatusCompare(game, current, last) {
         console.log('COMPARE')
         current.forEach(currentElem => {
             last.forEach(lastElem => {
@@ -197,7 +197,7 @@ module.exports = class SocketListener {
                     if (lastElem.STATUS === null && currentElem.STATUS === 'live') {
                         console.log('YES')
                         this.connectedSockets.players.forEach(elem => {
-                            elem.emit('dota2_live_status_update')
+                            elem.emit('live_status_update', game)
                         })
 
                     } else {
@@ -214,11 +214,14 @@ module.exports = class SocketListener {
 
             if (socket.handshake.query.game === 'dota2') {
                 console.log('dota2 match change');
-                this.dota2liveStatusCompare(data, this.live_status.DOTA2);
+                this.liveStatusCompare('dota2', data, this.live_status.DOTA2);
                 this.live_status.DOTA2 = data
                 this.match_list.DOTA2.now = data;
                 if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches_dota2_now', this.match_list.DOTA2.now)
             } else if (socket.handshake.query.game === 'csgo') {
+                console.log('csgo match change');
+                this.liveStatusCompare('csgo', data, this.live_status.CSGO);
+                this.live_status.CSGO = data;
                 this.match_list.CSGO.now = data;
                 if (this.connectedSockets.admin) this.connectedSockets.admin.emit('import_matches_csgo_now', this.match_list.CSGO.now)
             }
@@ -317,9 +320,9 @@ module.exports = class SocketListener {
         })
 
 
-        socket.on('players_sync_request', () => {
+        socket.on('players_sync_request', data => {
             this.connectedSockets.players.forEach(player => {
-                player.emit('players_sync_request')
+                player.emit('players_sync_request', data)
             })
         })
 
