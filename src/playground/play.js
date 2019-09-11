@@ -1,9 +1,3 @@
-let i = 10;
-const intervalID = setInterval(() => {
-    i--
-    console.log(i)
-    if (i === 0) {
+const buildingStateParser = require('../services/liveScore/buildingStateParser');
 
-        clearInterval(intervalID)
-    }
-}, 1000)
+

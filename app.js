@@ -71,10 +71,7 @@ server.listen(port, () => {
 (() => {
     const SocketListener = require('./src/services/SocketListener');
     const socketListener = new SocketListener();
-
-
     (() => {
-        write.log('LIVE SCORE LISTENER');
         socketListener.liveScoreListener();
     })();
     io.on('connection', (socket) => {
