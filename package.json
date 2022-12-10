@@ -18,7 +18,7 @@
     "cors": "^2.8.5",
     "debug": "^4.1.1",
     "dota2-api": "^0.2.1",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "express-pino-logger": "^4.0.0",
     "mongoose": "^5.6.0",
     "morgan": "^1.9.1",
